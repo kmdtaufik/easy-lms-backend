@@ -1,7 +1,7 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
-import { auth } from "./lib/auth";
+import { auth } from "@/lib/auth";
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import type {
   BotOptions,
@@ -9,12 +9,12 @@ import type {
   ProtectSignupOptions,
   SlidingWindowRateLimitOptions,
 } from "@arcjet/node";
-import { email, int } from "zod";
 import ip from "@arcjet/ip";
 import aj, { detectBot, protectSignup, slidingWindow } from "./lib/arcjet";
 
 const app = express();
 
+// Middlewares
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || "",
@@ -23,8 +23,11 @@ app.use(
     credentials: true,
   })
 );
+// Apply middleware only for Better Auth routes
+app.all("/api/auth/{*path}", arcjetMiddleware(), toNodeHandler(auth));
+app.use(express.json());
 
-//Arcjet middleware
+// Arcjet Options
 const emailOptions = {
   mode: "LIVE",
   block: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
@@ -47,18 +50,18 @@ const signupOptions = {
   rateLimit: rateLimitOptions,
 } satisfies ProtectSignupOptions<[]>;
 
-async function protect(req: any) {
+// Protection logic
+async function protect(req: express.Request) {
   const session = await auth.api.getSession({
     headers: fromNodeHeaders(req.headers),
   });
-  let userId: string;
-  if (session?.user.id) userId = session.user.id;
-  else userId = ip(req) || "127.0.0.1";
+
+  const userId = session?.user.id || ip(req) || "127.0.0.1";
 
   if (req.path === "/api/auth/sign-up") {
-    const body = await req.clone().json();
+    const body = req.body;
 
-    if (typeof body.email === "string") {
+    if (typeof body?.email === "string") {
       return aj
         .withRule(protectSignup(signupOptions))
         .protect(req, { email: body.email, fingerprint: userId });
@@ -69,76 +72,63 @@ async function protect(req: any) {
         .protect(req, { fingerprint: userId });
     }
   } else {
-    //for all other auth requests
     return aj
       .withRule(detectBot(botOptions))
       .protect(req, { fingerprint: userId });
   }
 }
 
-app.all("/api/auth/{*path}", toNodeHandler(auth));
+// Arcjet middleware
+function arcjetMiddleware() {
+  return async (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    const decision = await protect(req);
 
+    if (decision.isDenied()) {
+      if (decision.reason.isRateLimit()) {
+        return res.status(429).json({ error: "Too Many Requests" });
+      } else if (decision.reason.isEmail()) {
+        let message: string;
+        if (decision.reason.emailTypes.includes("DISPOSABLE")) {
+          message = "Disposable email addresses are not allowed.";
+        } else if (decision.reason.emailTypes.includes("INVALID")) {
+          message = "Invalid email address.";
+        } else if (decision.reason.emailTypes.includes("NO_MX_RECORDS")) {
+          message = "Email domain does not have valid MX records.";
+        } else {
+          message = "Invalid email address.";
+        }
+        return res.status(400).json({ error: message });
+      } else {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+    }
+
+    // Pass along decision if needed later
+    (req as any).arcjetDecision = decision;
+    if (process.env.NODE_ENV === "development")
+      // console.log("Arcjet Decision:", decision);
+      next();
+  };
+}
+
+// Example: get session
 app.get("/api/me", async (req, res) => {
-  if (process.env.NODE_ENV !== "production")
-    console.log("Received request for session:", req.headers);
   const session = await auth.api.getSession({
     headers: fromNodeHeaders(req.headers),
   });
   return res.json(session);
 });
 
-app.use(express.json());
-
-// app.get("/", (_req, res) => {
-//   res.status(200).send("OK");
-// });
-
-app.get("/", async (req, res) => {
-  const decision = await protect(req); // Deduct 5 tokens from the bucket
-  console.log("Arcjet decision", decision);
-
-  if (decision.isDenied()) {
-    if (decision.reason.isRateLimit()) {
-      res.writeHead(429, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Too Many Requests" }));
-    } else if (decision.reason.isEmail()) {
-      let message: string;
-      if (decision.reason.emailTypes.includes("DISPOSABLE")) {
-        message = "Disposable email addresses are not allowed.";
-      } else if (decision.reason.emailTypes.includes("INVALID")) {
-        message = "Invalid email address.";
-      } else if (decision.reason.emailTypes.includes("NO_MX_RECORDS")) {
-        message = "Email domain does not have valid MX records.";
-      } else {
-        message = "Invalid email address.";
-      }
-      res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: message }));
-    } else {
-      res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Forbidden" }));
-    }
-  } else if (decision.ip.isHosting()) {
-    // Requests from hosting IPs are likely from bots, so they can usually be
-    // blocked. However, consider your use case - if this is an API endpoint
-    // then hosting IPs might be legitimate.
-    // https://docs.arcjet.com/blueprints/vpn-proxy-detection
-    res.writeHead(403, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Forbidden" }));
-  } else if (decision.results.some(isSpoofedBot)) {
-    // Paid Arcjet accounts include additional verification checks using IP data.
-    // Verification isn't always possible, so we recommend checking the decision
-    // separately.
-    // https://docs.arcjet.com/bot-protection/reference#bot-verification
-    res.writeHead(403, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Forbidden" }));
-  } else {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ message: "Hello World" }));
-  }
+// Example: basic route with Arcjet check
+app.get("/", arcjetMiddleware(), (req, res) => {
+  res.json({ message: "Hello World", arcjet: (req as any).arcjetDecision });
 });
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`✅ Server running on port ${port}`);
 });
