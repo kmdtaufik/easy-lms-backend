@@ -1,6 +1,6 @@
 import z from "zod";
 import express from "express";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
 import slugify from "slugify";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -54,9 +54,44 @@ export const fileUpload: express.RequestHandler = async (
       key: uniqueKey,
     };
 
-    res.status(200).json({ success: true, data: response });
+    return res.status(200).json(response);
   } catch (e) {
-    res.status(500).json({ success: false, message: "Server error" });
     if (process.env.NODE_ENV === "development") console.log(e);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+//delete file function
+export const deleteFile = async (
+  req: express.Request,
+  res: express.Response,
+) => {
+  try {
+    const data = req.body;
+    if (process.env.NODE_ENV !== "production")
+      console.log("File delete request data:", data);
+
+    const { key } = data;
+    if (!key || typeof key !== "string") {
+      return res
+        .status(400)
+        .json({ success: false, message: "File key missing or invalid" });
+    }
+
+    const deleteCommand = new DeleteObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME_S3 as string,
+      Key: key,
+    });
+
+    await s3.send(deleteCommand);
+    if (process.env.NODE_ENV !== "production")
+      console.log("File deleted:", key);
+
+    return res
+      .status(200)
+      .json({ success: true, message: "File deleted successfully" });
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") console.log(e);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
