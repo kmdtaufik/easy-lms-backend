@@ -11,6 +11,7 @@ import type {
 } from "@arcjet/node";
 import ip from "@arcjet/ip";
 import aj, { detectBot, protectSignup, slidingWindow } from "./lib/arcjet";
+import productRoutes from "./routers/productRoutes";
 
 const app = express();
 
@@ -21,7 +22,7 @@ app.use(
     methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-  })
+  }),
 );
 // Apply middleware only for Better Auth routes
 app.all("/api/auth/{*path}", arcjetMiddleware(), toNodeHandler(auth));
@@ -83,7 +84,7 @@ function arcjetMiddleware() {
   return async (
     req: express.Request,
     res: express.Response,
-    next: express.NextFunction
+    next: express.NextFunction,
   ) => {
     const decision = await protect(req);
 
@@ -122,6 +123,9 @@ app.get("/api/me", async (req, res) => {
   });
   return res.json(session);
 });
+
+//product routes
+app.use("/api/product", productRoutes);
 
 // Example: basic route with Arcjet check
 app.get("/", arcjetMiddleware(), (req, res) => {
