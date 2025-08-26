@@ -12,6 +12,7 @@ export interface ILesson extends Document {
 
 const lessonSchema = new Schema<ILesson>(
   {
+    position: { type: Number, default: 0, required: true },
     title: { type: String, required: true, trim: true, maxlength: 200 },
     description: { type: String, trim: true },
     thumbnailKey: { type: String, trim: true },
