@@ -130,7 +130,7 @@ export class CourseController {
   static async getById(req: express.Request, res: express.Response) {
     try {
       const course = await Course.findById(req.params.id)
-        .populate("createdBy") // creator info
+        .populate("createdBy", "name email role image") // creator info
         .populate({
           path: "chapters", // populate chapters
           options: { sort: { position: 1 } }, // optional: sort by chapter position
