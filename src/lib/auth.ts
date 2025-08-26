@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { client } from "../db";
-import { emailOTP } from "better-auth/plugins";
+import { emailOTP, admin } from "better-auth/plugins";
 import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -9,12 +9,6 @@ export const auth = betterAuth({
   database: mongodbAdapter(client),
   telemetry: { enabled: false },
   trustedOrigins: [process.env.CORS_ORIGIN as string],
-  // rateLimit: {
-  //   enabled: false,
-  //   storage: "database",
-  //   window: 60,
-  //   max: 5,
-  // },
   emailAndPassword: {
     enabled: true,
   },
@@ -35,5 +29,6 @@ export const auth = betterAuth({
         });
       },
     }),
+    admin(),
   ],
 });

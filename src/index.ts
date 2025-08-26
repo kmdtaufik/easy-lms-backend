@@ -5,6 +5,8 @@ import { auth } from "@/lib/auth";
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import productRoutes from "./routers/productRoutes";
 import { arcjetMiddleware } from "./middleware/arcjet.middleware";
+import chapterRoutes from "./routers/chapter.route";
+import lessonRoutes from "./routers/lesson.route";
 
 const app = express();
 
@@ -20,7 +22,9 @@ app.use(
 // Apply middleware only for Better Auth routes
 app.all("/api/auth/{*path}", arcjetMiddleware(), toNodeHandler(auth));
 app.use(express.json());
-app.use("/api/product", productRoutes);
+app.use("/api/product", arcjetMiddleware(), productRoutes);
+app.use("/api/chapter", arcjetMiddleware(), chapterRoutes);
+app.use("/api/lesson", arcjetMiddleware(), lessonRoutes);
 
 // Example: get session
 app.get("/api/me", async (req, res) => {
