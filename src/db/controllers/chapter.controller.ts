@@ -106,9 +106,9 @@ export class ChapterController {
   static async delete(req: express.Request, res: express.Response) {
     try {
       const chapter = await Chapter.findById(req.params.id);
-      if (!chapter)
+      if (!chapter) {
         return res.status(404).json({ message: "Chapter not found" });
-
+      }
       // Delete all lessons in this chapter
       await Lesson.deleteMany({ chapter: chapter._id });
 

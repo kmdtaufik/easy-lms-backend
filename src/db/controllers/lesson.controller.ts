@@ -103,34 +103,29 @@ export class LessonController {
       });
     }
   }
-
   static async delete(req: express.Request, res: express.Response) {
-    const session = await mongoose.startSession();
-
     try {
-      await session.withTransaction(async () => {
-        const lesson = await Lesson.findById(req.params.id).session(session);
-        if (!lesson) {
-          return res.status(404).json({ message: "Lesson not found" });
-        }
+      const lesson = await Lesson.findById(req.params.id);
+      if (!lesson) {
+        return res.status(404).json({ message: "Lesson not found" });
+      }
 
-        const chapterId = lesson.chapter;
-        const deletedPosition = lesson.position;
+      const chapterId = lesson.chapter;
+      const deletedPosition = lesson.position;
 
-        // Remove lesson reference from chapter
-        await Chapter.findByIdAndUpdate(chapterId, {
-          $pull: { lessons: lesson._id },
-        }).session(session);
-
-        // Delete the lesson
-        await lesson.deleteOne({ session });
-
-        // Reorder remaining lessons to maintain sequential positions
-        await Lesson.updateMany(
-          { chapter: chapterId, position: { $gt: deletedPosition } },
-          { $inc: { position: -1 } }
-        ).session(session);
+      // Remove lesson reference from chapter
+      await Chapter.findByIdAndUpdate(chapterId, {
+        $pull: { lessons: lesson._id },
       });
+
+      // Delete the lesson
+      await lesson.deleteOne();
+
+      // Reorder remaining lessons to maintain sequential positions
+      await Lesson.updateMany(
+        { chapter: chapterId, position: { $gt: deletedPosition } },
+        { $inc: { position: -1 } },
+      );
 
       res.status(200).json({
         message: "Lesson deleted and positions updated successfully",
@@ -142,8 +137,6 @@ export class LessonController {
         error:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       });
-    } finally {
-      await session.endSession();
     }
   }
 }
