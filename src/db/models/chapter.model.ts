@@ -16,12 +16,12 @@ const chapterSchema = new Schema<IChapter>(
     course: { type: Schema.Types.ObjectId, ref: "Course", required: true },
     lessons: [{ type: Schema.Types.ObjectId, ref: "Lesson" }],
   },
-  { timestamps: true, collection: "chapters" },
+  { timestamps: true, collection: "chapters" }
 );
 
-// Ensure each position is unique within its course
-chapterSchema.index({ course: 1, position: 1 }, { unique: true });
+//indexing
 chapterSchema.index({ course: 1 });
+chapterSchema.index({ createdAt: -1 });
 
 // --- Cascade + ref cleanup on delete (query middleware: findByIdAndDelete/findOneAndDelete)
 chapterSchema.pre("findOneAndDelete", async function (next) {
@@ -56,7 +56,7 @@ chapterSchema.pre(
       .updateOne({ _id: courseId }, { $pull: { chapters: chapterId } });
 
     next();
-  },
+  }
 );
 
 export const Chapter = model<IChapter>("Chapter", chapterSchema);

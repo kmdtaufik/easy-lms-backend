@@ -8,25 +8,52 @@ export class LessonController {
     try {
       const { title, description, thumbnailKey, videoKey, chapterId } =
         req.body;
-      const chapter = await Chapter.findById(chapterId);
-      if (!chapter)
-        return res.status(404).json({ message: "Chapter not found" });
 
+      // Validate required fields
+      if (!title || !chapterId) {
+        return res.status(400).json({
+          message: "Title and chapterId are required",
+        });
+      }
+
+      // Check if chapter exists
+      const chapter = await Chapter.findById(chapterId);
+      if (!chapter) {
+        return res.status(404).json({ message: "Chapter not found" });
+      }
+
+      // Count existing lessons in this chapter to determine next position
+      const existingLessonsCount = await Lesson.countDocuments({
+        chapter: chapterId,
+      });
+
+      // Create new lesson with calculated position
       const lesson = new Lesson({
         title,
         description,
         thumbnailKey,
         videoKey,
+        position: existingLessonsCount + 1, // Add to the very last
         chapter: chapterId,
       });
+
       await lesson.save();
 
-      chapter.lessons.push(lesson._id as mongoose.Types.ObjectId); // ✅ cast to ObjectId
+      // Add lesson reference to chapter
+      chapter.lessons.push(lesson._id as mongoose.Types.ObjectId);
       await chapter.save();
 
-      res.status(201).json(lesson);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to create lesson", error });
+      res.status(201).json({
+        message: "Lesson created successfully",
+        data: lesson,
+      });
+    } catch (error: any) {
+      console.error("Lesson creation error:", error);
+      res.status(500).json({
+        message: "Failed to create lesson",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
     }
   }
 
@@ -35,7 +62,7 @@ export class LessonController {
       const filter = req.query.chapterId
         ? { chapter: req.query.chapterId }
         : {};
-      const lessons = await Lesson.find(filter);
+      const lessons = await Lesson.find(filter).sort({ position: 1 }); // Sort by position
       res.status(200).json(lessons);
     } catch (error) {
       res.status(500).json({ message: "Failed to get lessons", error });
@@ -54,31 +81,69 @@ export class LessonController {
 
   static async update(req: express.Request, res: express.Response) {
     try {
-      const lesson = await Lesson.findByIdAndUpdate(req.params.id, req.body, {
+      const updates = { ...req.body, updatedAt: new Date() };
+
+      const lesson = await Lesson.findByIdAndUpdate(req.params.id, updates, {
         new: true,
         runValidators: true,
       });
+
       if (!lesson) return res.status(404).json({ message: "Lesson not found" });
-      res.status(200).json(lesson);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to update lesson", error });
+
+      res.status(200).json({
+        message: "Lesson updated successfully",
+        data: lesson,
+      });
+    } catch (error: any) {
+      console.error("Lesson update error:", error);
+      res.status(500).json({
+        message: "Failed to update lesson",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
     }
   }
 
   static async delete(req: express.Request, res: express.Response) {
-    try {
-      const lesson = await Lesson.findById(req.params.id);
-      if (!lesson) return res.status(404).json({ message: "Lesson not found" });
+    const session = await mongoose.startSession();
 
-      // remove lesson reference from chapter
-      await Chapter.findByIdAndUpdate(lesson.chapter, {
-        $pull: { lessons: lesson._id },
+    try {
+      await session.withTransaction(async () => {
+        const lesson = await Lesson.findById(req.params.id).session(session);
+        if (!lesson) {
+          return res.status(404).json({ message: "Lesson not found" });
+        }
+
+        const chapterId = lesson.chapter;
+        const deletedPosition = lesson.position;
+
+        // Remove lesson reference from chapter
+        await Chapter.findByIdAndUpdate(chapterId, {
+          $pull: { lessons: lesson._id },
+        }).session(session);
+
+        // Delete the lesson
+        await lesson.deleteOne({ session });
+
+        // Reorder remaining lessons to maintain sequential positions
+        await Lesson.updateMany(
+          { chapter: chapterId, position: { $gt: deletedPosition } },
+          { $inc: { position: -1 } }
+        ).session(session);
       });
 
-      await lesson.deleteOne();
-      res.status(200).json({ message: "Lesson deleted" });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete lesson", error });
+      res.status(200).json({
+        message: "Lesson deleted and positions updated successfully",
+      });
+    } catch (error: any) {
+      console.error("Delete lesson error:", error);
+      res.status(500).json({
+        message: "Failed to delete lesson",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    } finally {
+      await session.endSession();
     }
   }
 }

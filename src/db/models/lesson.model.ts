@@ -1,6 +1,7 @@
 import mongoose, { Schema, Types, Document, model } from "mongoose";
 
 export interface ILesson extends Document {
+  position: number; // order within the chapter
   title: string;
   description?: string;
   thumbnailKey?: string;
@@ -19,7 +20,7 @@ const lessonSchema = new Schema<ILesson>(
     videoKey: { type: String, trim: true },
     chapter: { type: Schema.Types.ObjectId, ref: "Chapter", required: true },
   },
-  { timestamps: true, collection: "lessons" },
+  { timestamps: true, collection: "lessons" }
 );
 
 lessonSchema.index({ chapter: 1, createdAt: -1 });
@@ -51,7 +52,7 @@ lessonSchema.pre(
       .updateOne({ _id: chapterId }, { $pull: { lessons: lessonId } });
 
     next();
-  },
+  }
 );
 
 export const Lesson = model<ILesson>("Lesson", lessonSchema);

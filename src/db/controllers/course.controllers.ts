@@ -81,7 +81,7 @@ export class CourseController {
 
       if (error.name === "ValidationError") {
         const errors = Object.values(error.errors).map(
-          (err: any) => err.message,
+          (err: any) => err.message
         );
         return res.status(400).json({ message: "Validation failed", errors });
       }
@@ -136,7 +136,7 @@ export class CourseController {
           options: { sort: { position: 1 } }, // optional: sort by chapter position
           populate: {
             path: "lessons", // populate lessons inside each chapter
-            options: { sort: { createdAt: 1 } }, // optional: sort lessons by creation date
+            options: { sort: { position: 1 } }, // optional: sort lessons by position
           },
         });
 
@@ -154,7 +154,7 @@ export class CourseController {
     try {
       const course = await Course.findOne({ slug: req.params.slug }).populate(
         "createdBy",
-        "name email role",
+        "name email role"
       );
       if (!course) return res.status(404).json({ message: "Course not found" });
       res.status(200).json({ data: course });
@@ -169,7 +169,7 @@ export class CourseController {
     try {
       const updates = { ...req.body, updatedAt: new Date() };
       Object.keys(updates).forEach(
-        (key) => updates[key] === undefined && delete updates[key],
+        (key) => updates[key] === undefined && delete updates[key]
       );
 
       if (updates.price !== undefined && updates.price < 0)
@@ -202,7 +202,7 @@ export class CourseController {
 
       if (error.name === "ValidationError") {
         const errors = Object.values(error.errors).map(
-          (err: any) => err.message,
+          (err: any) => err.message
         );
         return res.status(400).json({ message: "Validation failed", errors });
       }
