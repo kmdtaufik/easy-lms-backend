@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { Chapter } from "@/db/models/chapter.model";
 import { Lesson } from "@/db/models/lesson.model";
 import { Course } from "@/db/models/course.model";
+import { s3FileDelete } from "@/services/s3";
 
 export class ChapterController {
   static async create(req: express.Request, res: express.Response) {
@@ -109,6 +110,13 @@ export class ChapterController {
       if (!chapter) {
         return res.status(404).json({ message: "Chapter not found" });
       }
+
+      const lessons = await Lesson.find({ chapter: chapter._id });
+      for (const lesson of lessons) {
+        if (lesson.thumbnailKey) await s3FileDelete(lesson.thumbnailKey);
+        if (lesson.videoKey) await s3FileDelete(lesson.videoKey);
+      }
+
       // Delete all lessons in this chapter
       await Lesson.deleteMany({ chapter: chapter._id });
 
