@@ -95,3 +95,16 @@ export const deleteFile = async (
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+export async function s3FileDelete(key: string) {
+  try {
+    const deleteCommand = new DeleteObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME_S3 as string,
+      Key: key,
+    });
+
+    await s3.send(deleteCommand);
+  } catch (e) {
+    console.error(e);
+  }
+}
