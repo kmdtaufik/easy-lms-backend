@@ -5,6 +5,8 @@ import { Course } from "../models/course.model";
 import { User } from "../models/auth.model"; // ✅ Import User for population
 import { Chapter } from "../models/chapter.model";
 import { Lesson } from "../models/lesson.model";
+import { s3FileDelete } from "@/services/s3";
+
 export class CourseController {
   // CREATE
   static async create(req: express.Request, res: express.Response) {
@@ -81,7 +83,7 @@ export class CourseController {
 
       if (error.name === "ValidationError") {
         const errors = Object.values(error.errors).map(
-          (err: any) => err.message
+          (err: any) => err.message,
         );
         return res.status(400).json({ message: "Validation failed", errors });
       }
@@ -154,7 +156,7 @@ export class CourseController {
     try {
       const course = await Course.findOne({ slug: req.params.slug }).populate(
         "createdBy",
-        "name email role"
+        "name email role",
       );
       if (!course) return res.status(404).json({ message: "Course not found" });
       res.status(200).json({ data: course });
@@ -169,7 +171,7 @@ export class CourseController {
     try {
       const updates = { ...req.body, updatedAt: new Date() };
       Object.keys(updates).forEach(
-        (key) => updates[key] === undefined && delete updates[key]
+        (key) => updates[key] === undefined && delete updates[key],
       );
 
       if (updates.price !== undefined && updates.price < 0)
@@ -202,7 +204,7 @@ export class CourseController {
 
       if (error.name === "ValidationError") {
         const errors = Object.values(error.errors).map(
-          (err: any) => err.message
+          (err: any) => err.message,
         );
         return res.status(400).json({ message: "Validation failed", errors });
       }
@@ -222,12 +224,21 @@ export class CourseController {
       const course = await Course.findById(req.params.id);
       if (!course) return res.status(404).json({ message: "Course not found" });
 
-      // 🔥 delete all chapters + lessons
+      //  delete all chapters + lessons
       const chapters = await Chapter.find({ course: course._id });
       for (const chapter of chapters) {
-        await Lesson.deleteMany({ chapter: chapter._id });
+        const lessons = await Lesson.find({ chapter: chapter._id });
+        for (const lesson of lessons) {
+          if (lesson.thumbnailKey) await s3FileDelete(lesson.thumbnailKey);
+          if (lesson.videoKey) await s3FileDelete(lesson.videoKey);
+        }
+        await Lesson.deleteMany({ chapter: chapter._id }); // delete lessons under chapter
+        // no need to delete chapter here, will do bulk delete after loop
       }
       await Chapter.deleteMany({ course: course._id });
+
+      //delte filkey from s3
+      if (course.fileKey) await s3FileDelete(course.fileKey);
 
       // finally delete the course
       await course.deleteOne();

@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import { Lesson } from "@/db/models/lesson.model";
 import { Chapter } from "@/db/models/chapter.model";
+import { s3FileDelete } from "@/services/s3";
 
 export class LessonController {
   static async create(req: express.Request, res: express.Response) {
@@ -112,6 +113,10 @@ export class LessonController {
 
       const chapterId = lesson.chapter;
       const deletedPosition = lesson.position;
+
+      //remove thumbnail and video from s3
+      if (lesson.thumbnailKey) await s3FileDelete(lesson.thumbnailKey);
+      if (lesson.videoKey) await s3FileDelete(lesson.videoKey);
 
       // Remove lesson reference from chapter
       await Chapter.findByIdAndUpdate(chapterId, {
