@@ -9,6 +9,12 @@ export const auth = betterAuth({
   database: mongodbAdapter(client),
   telemetry: { enabled: false },
   trustedOrigins: [process.env.CORS_ORIGIN as string],
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    },
+  },
   emailAndPassword: {
     enabled: true,
   },
