@@ -1,10 +1,31 @@
 {
   "version": 2,
-  "builds": [{ "src": "/dist/server.js", "use": "@vercel/node" }],
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "CORS_ORIGIN": "@cors_origin",
+    "RESEND_API_KEY": "@resend_api_key",
+    "GOOGLE_CLIENT_ID": "@google_client_id",
+    "GOOGLE_CLIENT_SECRET": "@google_client_secret",
+    "ARCJET_KEY": "@arcjet_key",
+    "AWS_BUCKET_NAME_S3": "@aws_bucket_name_s3",
+    "AWS_ENDPOING_URL_S3": "@aws_endpoint_url_s3"
+  },
+  "buildCommand": "pnpm install && pnpm tsc",
+  "installCommand": "pnpm install",
+  "outputDirectory": ".",
+  "builds": [
+    {
+      "src": "src/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["src/**"]
+      }
+    }
+  ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "/dist/server.js"
+      "src": "/api/(.*)",
+      "dest": "src/index.ts"
     }
   ]
 }
