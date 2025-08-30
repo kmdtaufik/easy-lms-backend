@@ -100,29 +100,45 @@ export class CourseController {
     }
   }
 
-  // GET all with pagination and population
+  // GET all with pagination, population, and search
   static async getAll(req: express.Request, res: express.Response) {
-    //get session
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
+
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 9;
       const skip = (page - 1) * limit;
+      const search = req.query.search as string;
 
       const filter: any = {};
+
+      // Role-based filtering
       if (!session || session?.user?.role !== "admin") {
         filter.status = "Published"; // only published for non-admins
       } else {
         if (req.query.status) filter.status = req.query.status;
       }
 
+      // Category and level filtering
       if (req.query.category) filter.category = req.query.category;
       if (req.query.level) filter.level = req.query.level;
 
+      // Search functionality
+      if (search && search.trim()) {
+        const searchRegex = new RegExp(search.trim(), "i"); // Case-insensitive search
+        filter.$or = [
+          { title: searchRegex },
+          { description: searchRegex },
+          { smallDescription: searchRegex },
+          { category: searchRegex },
+          { level: searchRegex },
+        ];
+      }
+
       const courses = await Course.find(filter)
-        .populate("createdBy", "name email role") // ✅ populate
+        .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -131,7 +147,13 @@ export class CourseController {
 
       res.status(200).json({
         data: courses,
-        pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+          search: search || null,
+        },
       });
     } catch (error) {
       if (process.env.NODE_ENV !== "production") console.error(error);
