@@ -10,7 +10,7 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "outDir": "./public",
+    "outDir": "./dist",
     "types": ["node"],
     "composite": true,
     "jsx": "react-jsx"
