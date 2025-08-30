@@ -21,7 +21,7 @@ app.use(
     methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-  })
+  }),
 );
 
 // Apply middleware only for Better Auth routes
@@ -36,7 +36,7 @@ app.use(
   "/api/lesson/progress",
   arcjetMiddleware(),
   authenticateToken,
-  lessonProgressRoutes
+  lessonProgressRoutes,
 );
 app.use("/api/lesson", arcjetMiddleware(), lessonRoutes);
 app.use("/api/enrollment", arcjetMiddleware(), enrollmentRoutes);
@@ -56,7 +56,9 @@ app.get(
   arcjetMiddleware(),
   (req: express.Request, res: express.Response) => {
     res.json({ message: "Hello World" });
-  }
+  },
 );
-
 const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
