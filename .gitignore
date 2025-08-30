@@ -2,7 +2,6 @@
 dist/
 /build
 /out/
-./public
 # dev
 .yarn/
 !.yarn/patches

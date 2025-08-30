@@ -43,7 +43,7 @@ app.use("/api/enrollment", arcjetMiddleware(), enrollmentRoutes);
 app.use("/api/stats", arcjetMiddleware(), statsRoutes);
 
 // Example: get session
-app.get("/api/me", async (req, res) => {
+app.get("/api/me", async (req: express.Request, res: express.Response) => {
   const session = await auth.api.getSession({
     headers: fromNodeHeaders(req.headers),
   });
@@ -51,12 +51,12 @@ app.get("/api/me", async (req, res) => {
 });
 
 // Example: basic route with Arcjet check
-app.get("/", arcjetMiddleware(), (req, res) => {
-  res.json({ message: "Hello World", arcjet: (req as any).arcjetDecision });
-});
+app.get(
+  "/",
+  arcjetMiddleware(),
+  (req: express.Request, res: express.Response) => {
+    res.json({ message: "Hello World" });
+  }
+);
 
 const port = process.env.PORT || 3000;
-// app.listen(port, () => {
-//   console.log(`✅ Server running on port ${port}`);
-// });
-export default app;
