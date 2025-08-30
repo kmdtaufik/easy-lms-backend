@@ -9,6 +9,7 @@ router.delete("/s3/delete", deleteFile);
 router.post("/", CourseController.create);
 router.get("/", CourseController.getAll);
 router.get("/:id", CourseController.getById);
+router.get("/slug/:slug", CourseController.getBySlug);
 router.put("/:id", CourseController.update);
 router.delete("/:id", CourseController.delete);
 

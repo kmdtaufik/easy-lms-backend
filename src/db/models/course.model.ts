@@ -73,6 +73,7 @@ const courseSchema = new Schema(
 
     // 🔑 NEW: Chapters relation
     chapters: [{ type: mongoose.Schema.Types.ObjectId, ref: "Chapter" }],
+    enrollments: [{ type: Schema.Types.ObjectId, ref: "Enrollment" }],
   },
   {
     collection: "courses",
@@ -97,6 +98,7 @@ courseSchema.pre("save", function (next) {
 
 // Virtual for formatted price
 courseSchema.virtual("formattedPrice").get(function () {
+  if (!this.price) return "$0.00";
   return `$${this.price.toFixed(2)}`;
 });
 

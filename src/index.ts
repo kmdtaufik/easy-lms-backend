@@ -7,6 +7,10 @@ import productRoutes from "./routers/productRoutes";
 import { arcjetMiddleware } from "./middleware/arcjet.middleware";
 import chapterRoutes from "./routers/chapter.route";
 import lessonRoutes from "./routers/lesson.route";
+import enrollmentRoutes from "./routers/enrollment.route";
+import statsRoutes from "./routers/stats.route";
+import lessonProgressRoutes from "./routers/lessonProgress.route";
+import { authenticateToken } from "./middleware/auth.middleware";
 
 const app = express();
 
@@ -19,12 +23,24 @@ app.use(
     credentials: true,
   }),
 );
+
 // Apply middleware only for Better Auth routes
-app.all("/api/auth/{*path}", arcjetMiddleware(), toNodeHandler(auth));
+app.all("/api/auth/{*path}", arcjetMiddleware(), toNodeHandler(auth)); //Warn: do not change the {*path} -> *
 app.use(express.json());
+
+// Routes
 app.use("/api/product", arcjetMiddleware(), productRoutes);
 app.use("/api/chapter", arcjetMiddleware(), chapterRoutes);
+// Lesson progress routes with authentication
+app.use(
+  "/api/lesson/progress",
+  arcjetMiddleware(),
+  authenticateToken,
+  lessonProgressRoutes,
+);
 app.use("/api/lesson", arcjetMiddleware(), lessonRoutes);
+app.use("/api/enrollment", arcjetMiddleware(), enrollmentRoutes);
+app.use("/api/stats", arcjetMiddleware(), statsRoutes);
 
 // Example: get session
 app.get("/api/me", async (req, res) => {
@@ -33,8 +49,6 @@ app.get("/api/me", async (req, res) => {
   });
   return res.json(session);
 });
-
-//product routes
 
 // Example: basic route with Arcjet check
 app.get("/", arcjetMiddleware(), (req, res) => {

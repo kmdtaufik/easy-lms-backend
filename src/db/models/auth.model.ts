@@ -5,7 +5,6 @@ const { Schema, model } = mongoose;
 
 const userSchema = new Schema(
   {
-    // _id: { type: Schema. },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     emailVerified: { type: Boolean, required: true },
@@ -16,8 +15,14 @@ const userSchema = new Schema(
     banExpires: { type: Date, default: null },
     createdAt: { type: Date, required: true },
     updatedAt: { type: Date, required: true },
+
+    enrollments: [{ type: Schema.Types.ObjectId, ref: "Enrollment" }],
+    lessonProgress: [{ type: Schema.Types.ObjectId, ref: "LessonProgress" }],
+
+    // For Stripe integration
+    stripeCustomerId: { type: String, unique: true },
   },
-  { collection: "user" }
+  { collection: "user" },
 );
 
 const sessionSchema = new Schema(
@@ -32,7 +37,7 @@ const sessionSchema = new Schema(
     userId: { type: String, ref: "User", required: true },
     impersonatedBy: { type: String, ref: "User", default: null },
   },
-  { collection: "session" }
+  { collection: "session" },
 );
 
 const accountSchema = new Schema(
@@ -51,7 +56,7 @@ const accountSchema = new Schema(
     createdAt: { type: Date, required: true },
     updatedAt: { type: Date, required: true },
   },
-  { collection: "account" }
+  { collection: "account" },
 );
 
 const verificationSchema = new Schema(
@@ -63,7 +68,7 @@ const verificationSchema = new Schema(
     createdAt: { type: Date },
     updatedAt: { type: Date },
   },
-  { collection: "verification" }
+  { collection: "verification" },
 );
 
 const rateLimitSchema = new Schema(
@@ -73,7 +78,7 @@ const rateLimitSchema = new Schema(
     count: { type: Number, required: true, default: 0 },
     lastRequest: { type: Number, required: true },
   },
-  { collection: "rateLimit" }
+  { collection: "rateLimit" },
 );
 
 const User = model("User", userSchema);

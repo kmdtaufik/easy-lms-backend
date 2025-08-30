@@ -7,6 +7,15 @@ export interface ILesson extends Document {
   thumbnailKey?: string;
   videoKey?: string;
   chapter: Types.ObjectId; // parent chapter
+  lessonProgress: Types.ObjectId[]; // Fixed: should be array
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ILessonProgress extends Document {
+  completed: boolean;
+  user: Types.ObjectId;
+  lesson: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,8 +28,9 @@ const lessonSchema = new Schema<ILesson>(
     thumbnailKey: { type: String, trim: true },
     videoKey: { type: String, trim: true },
     chapter: { type: Schema.Types.ObjectId, ref: "Chapter", required: true },
+    lessonProgress: [{ type: Schema.Types.ObjectId, ref: "LessonProgress" }],
   },
-  { timestamps: true, collection: "lessons" }
+  { timestamps: true, collection: "lessons" },
 );
 
 lessonSchema.index({ chapter: 1, createdAt: -1 });
@@ -35,6 +45,9 @@ lessonSchema.pre("findOneAndDelete", async function (next) {
   await mongoose
     .model("Chapter")
     .updateOne({ _id: doc.chapter }, { $pull: { lessons: doc._id } });
+
+  // Clean up lesson progress records
+  await mongoose.model("LessonProgress").deleteMany({ lesson: doc._id });
 
   next();
 });
@@ -51,8 +64,52 @@ lessonSchema.pre(
       .model("Chapter")
       .updateOne({ _id: chapterId }, { $pull: { lessons: lessonId } });
 
+    // Clean up lesson progress records
+    await mongoose.model("LessonProgress").deleteMany({ lesson: lessonId });
+
     next();
-  }
+  },
 );
 
+const lessonProgressSchema = new Schema<ILessonProgress>(
+  {
+    completed: { type: Boolean, default: false },
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    lesson: {
+      type: Schema.Types.ObjectId,
+      ref: "Lesson",
+      required: true,
+    },
+  },
+  { timestamps: true, collection: "lessonProgress" },
+);
+
+// Clean up references when lesson progress is deleted
+lessonProgressSchema.pre("findOneAndDelete", async function (next) {
+  const doc = await (this as any).model
+    .findOne(this.getQuery())
+    .select("_id lesson user");
+  if (!doc) return next();
+
+  // Remove from lesson's progress array
+  await mongoose
+    .model("Lesson")
+    .updateOne({ _id: doc.lesson }, { $pull: { lessonProgress: doc._id } });
+
+  // Remove from user's progress array
+  await mongoose
+    .model("User")
+    .updateOne({ _id: doc.user }, { $pull: { lessonProgress: doc._id } });
+
+  next();
+});
+
+export const LessonProgress = model<ILessonProgress>(
+  "LessonProgress",
+  lessonProgressSchema,
+);
 export const Lesson = model<ILesson>("Lesson", lessonSchema);

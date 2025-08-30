@@ -6,7 +6,9 @@ import { User } from "../models/auth.model"; // ✅ Import User for population
 import { Chapter } from "../models/chapter.model";
 import { Lesson } from "../models/lesson.model";
 import { s3FileDelete } from "@/services/s3";
-
+import { fromNodeHeaders } from "better-auth/node";
+import { auth } from "@/lib/auth";
+import { Enrollment } from "../models/enrollment.model";
 export class CourseController {
   // CREATE
   static async create(req: express.Request, res: express.Response) {
@@ -83,7 +85,7 @@ export class CourseController {
 
       if (error.name === "ValidationError") {
         const errors = Object.values(error.errors).map(
-          (err: any) => err.message,
+          (err: any) => err.message
         );
         return res.status(400).json({ message: "Validation failed", errors });
       }
@@ -100,13 +102,22 @@ export class CourseController {
 
   // GET all with pagination and population
   static async getAll(req: express.Request, res: express.Response) {
+    //get session
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
     try {
       const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
+      const limit = parseInt(req.query.limit as string) || 9;
       const skip = (page - 1) * limit;
 
       const filter: any = {};
-      if (req.query.status) filter.status = req.query.status;
+      if (!session || session?.user?.role !== "admin") {
+        filter.status = "Published"; // only published for non-admins
+      } else {
+        if (req.query.status) filter.status = req.query.status;
+      }
+
       if (req.query.category) filter.category = req.query.category;
       if (req.query.level) filter.level = req.query.level;
 
@@ -153,12 +164,57 @@ export class CourseController {
 
   // GET by slug
   static async getBySlug(req: express.Request, res: express.Response) {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+
     try {
-      const course = await Course.findOne({ slug: req.params.slug }).populate(
-        "createdBy",
-        "name email role",
-      );
+      //check if course exists
+      let course = await Course.findOne({ slug: req.params.slug });
       if (!course) return res.status(404).json({ message: "Course not found" });
+
+      //check if user bought the course
+      const isEnrolled = await Enrollment.findOne({
+        course: course._id,
+        user: session?.user?.id,
+        status: "active",
+      });
+
+      // Public access - only show published courses with basic info
+      if (!session?.user?.id || !isEnrolled) {
+        course = await Course.findOne({
+          slug: req.params.slug,
+          status: "Published",
+        })
+          .populate("createdBy", "name role")
+          .populate({
+            path: "chapters",
+            options: { sort: { position: 1 } },
+            populate: {
+              path: "lessons",
+              select: "title  position", //  Only include these fields
+              options: { sort: { position: 1 } },
+            },
+          });
+        return res.status(200).json({ data: course });
+      }
+
+      if (isEnrolled) {
+        course = await Course.findOne({
+          slug: req.params.slug,
+          status: "Published",
+        })
+          .populate("createdBy", "name role image")
+          .populate({
+            path: "chapters",
+            options: { sort: { position: 1 } },
+            populate: {
+              path: "lessons",
+              options: { sort: { position: 1 } },
+            },
+          });
+      }
+
       res.status(200).json({ data: course });
     } catch (error) {
       if (process.env.NODE_ENV !== "production") console.error(error);
@@ -171,7 +227,7 @@ export class CourseController {
     try {
       const updates = { ...req.body, updatedAt: new Date() };
       Object.keys(updates).forEach(
-        (key) => updates[key] === undefined && delete updates[key],
+        (key) => updates[key] === undefined && delete updates[key]
       );
 
       if (updates.price !== undefined && updates.price < 0)
@@ -204,7 +260,7 @@ export class CourseController {
 
       if (error.name === "ValidationError") {
         const errors = Object.values(error.errors).map(
-          (err: any) => err.message,
+          (err: any) => err.message
         );
         return res.status(400).json({ message: "Validation failed", errors });
       }

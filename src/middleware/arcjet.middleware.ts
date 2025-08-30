@@ -43,7 +43,6 @@ async function protect(req: express.Request) {
   const session = await auth.api.getSession({
     headers: fromNodeHeaders(req.headers),
   });
-
   const userId = session?.user.id || ip(req) || "127.0.0.1";
 
   try {
@@ -70,15 +69,13 @@ async function protect(req: express.Request) {
           .withRule(detectBot(botOptions))
           .protect(req, { fingerprint: userId });
       }
-
-      if (!session?.user?.id) {
+      if (!session?.user?.id || session.user.role !== "admin") {
         // If no user && request is not get, deny explicitly
         return {
           isDenied: () => true,
           reason: { isCustom: () => true, message: "User not authorized." },
         } as any;
       }
-
       // Apply basic protections (bot + rate limit)
       return aj
         .withRule(detectBot(botOptions))
@@ -87,11 +84,35 @@ async function protect(req: express.Request) {
             mode: "LIVE",
             window: "1m",
             max: 10,
-          }),
+          })
         )
         .protect(req, { fingerprint: userId });
     }
 
+    //--Enrollment protection---
+    if (req.originalUrl.startsWith("/api/enrollment")) {
+      if (!session) {
+        return {
+          isDenied: () => true,
+          reason: { isCustom: () => true, message: "User not authenticated." },
+        } as any;
+      }
+      return aj
+        .withRule(detectBot(botOptions))
+        .protect(req, { fingerprint: userId });
+    }
+
+    if (req.originalUrl.startsWith("/api/stats")) {
+      if (!session?.user?.id || session.user.role !== "admin") {
+        return {
+          isDenied: () => true,
+          reason: { isCustom: () => true, message: "User not authorized." },
+        } as any;
+      }
+      return aj
+        .withRule(detectBot(botOptions))
+        .protect(req, { fingerprint: userId });
+    }
     // --- Default Protection (all other routes) ---
     return aj
       .withRule(detectBot(botOptions))
@@ -110,7 +131,7 @@ export function arcjetMiddleware() {
   return async (
     req: express.Request,
     res: express.Response,
-    next: express.NextFunction,
+    next: express.NextFunction
   ) => {
     const decision = await protect(req);
 
