@@ -9,7 +9,7 @@ const userSchema = new Schema(
     email: { type: String, required: true, unique: true },
     emailVerified: { type: Boolean, required: true },
     image: { type: String },
-    role: { type: String, enum: ["user", "admin"], default: "user" },
+    role: { type: String, enum: ["user", "admin"], default: "admin" },
     banned: { type: Boolean, default: false },
     banReason: { type: String, default: null },
     banExpires: { type: Date, default: null },
@@ -22,7 +22,7 @@ const userSchema = new Schema(
     // For Stripe integration
     stripeCustomerId: { type: String, unique: true },
   },
-  { collection: "user" },
+  { collection: "user" }
 );
 
 const sessionSchema = new Schema(
@@ -37,7 +37,7 @@ const sessionSchema = new Schema(
     userId: { type: String, ref: "User", required: true },
     impersonatedBy: { type: String, ref: "User", default: null },
   },
-  { collection: "session" },
+  { collection: "session" }
 );
 
 const accountSchema = new Schema(
@@ -56,7 +56,7 @@ const accountSchema = new Schema(
     createdAt: { type: Date, required: true },
     updatedAt: { type: Date, required: true },
   },
-  { collection: "account" },
+  { collection: "account" }
 );
 
 const verificationSchema = new Schema(
@@ -68,7 +68,7 @@ const verificationSchema = new Schema(
     createdAt: { type: Date },
     updatedAt: { type: Date },
   },
-  { collection: "verification" },
+  { collection: "verification" }
 );
 
 const rateLimitSchema = new Schema(
@@ -78,7 +78,7 @@ const rateLimitSchema = new Schema(
     count: { type: Number, required: true, default: 0 },
     lastRequest: { type: Number, required: true },
   },
-  { collection: "rateLimit" },
+  { collection: "rateLimit" }
 );
 
 const User = model("User", userSchema);
