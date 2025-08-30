@@ -1,9 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "verbatimModuleSyntax": true,
+    // "target": "ESNext",
+    // "module": "ESNext",
+    // "moduleResolution": "bundler",
+    // "verbatimModuleSyntax": true,
+    "module": "commonjs",
+    "target": "es2020",
+    "moduleResolution": "node",
     "strict": true,
     "skipLibCheck": true,
     "baseUrl": "./",
